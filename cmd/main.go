@@ -68,10 +68,15 @@ import (
 var (
 	// Logger is the logger to use.
 	Logger *log.Logger
+
+	// t is the template to use.
+	t *template.Template
 )
 
 func init() {
 	Logger = ggen.InitLogger("table")
+
+	t = template.Must(template.New("").Parse(templ))
 }
 
 var (
@@ -129,10 +134,6 @@ func main() {
 	if err != nil {
 		Logger.Fatalf("Could not fix output location: %s", err.Error())
 	}
-
-	t := template.Must(
-		template.New("").Parse(templ),
-	)
 
 	type_sig, err := ggen.MakeTypeSig(type_name, "")
 	if err != nil {
