@@ -1,16 +1,68 @@
-// **Flag: Type Name**
+// This command generates a table of the given type implemented as a boundless table (i.e., out-of-bounds errors are not thrown).
 //
-// The "type name" flag is used to specify the name of the tree node struct. As such, it must be set and,
+// To use it, run the following command:
+//
+// //go:generate go run github.com/PlayerR9/table/cmd/table -name=<type_name> -type=<type> [ -g=<generics>] [ -o=<output_file> ]
+//
+// **Flag: Name**
+//
+// The "name" flag is used to specify the name of the table. As such, it must be set and,
 // not only does it have to be a valid Go identifier, but it also must start with an upper case letter.
+//
+// **Flag: Type**
+//
+// The "fields" flag is used to specify type of the table's cells. This flag must be set.
+//
+// For instance, running the following command:
+//
+//	//go:generate treenode -name=Table -type=int
+//
+// will generate a table with the following structure:
+//
+//	type Table struct {
+//		table [][]int
+//	}
+//
+// It is important to note that spaces are not allowed in any of the flags.
+//
+// Also, it is possible to specify generics by following the value with the generics between square brackets;
+// like so: "MyType[T,C]"
+//
+// **Flag: Generics**
+//
+// This optional flag is used to specify the type(s) of the generics. However, this only applies if at least one
+// generic type is specified in the type flag. If none, then this flag is ignored.
+//
+// As an edge case, if this flag is not specified but the type flag contains generics, then
+// all generics are set to the default value of "any".
+//
+// Its argument is specified as a list of key-value pairs where each pair is separated
+// by a comma (",") and a slash ("/") is used to separate the key and the value. The key indicates the name of
+// the generic and the value indicates the type of the generic.
+//
+// For instance, running the following command:
+//
+//	//go:generate table -name=Table -type=MyType[T] -g=T/any
+//
+// will generate a table with the following fields:
+//
+//	type Table[T any] struct {
+//		table [][]T
+//	}
+//
+// **Flag: Output File**
+//
+// This optional flag is used to specify the output file. If not specified, the output will be written to
+// standard output, that is, the file "<type_name>_table.go" in the root of the current directory.
 package main
 
 import (
+	"flag"
 	"log"
 	"text/template"
 
 	uc "github.com/PlayerR9/MyGoLib/Units/common"
 	ggen "github.com/PlayerR9/MyGoLib/go_generator"
-	"github.com/PlayerR9/table/cmd/table/pkg"
 )
 
 var (
@@ -22,13 +74,51 @@ func init() {
 	Logger = ggen.InitLogger("table")
 }
 
+var (
+	TypeNameFlag *string
+)
+
+func init() {
+	TypeNameFlag = flag.String("name", "", "The name of the generated type. It must be set.")
+
+	ggen.SetOutputFlag("<type>_table.go", false)
+
+	ggen.SetTypeListFlag("type", true, 1, "The type of each table's cell.")
+	ggen.SetGenericsSignFlag("g", false, 1)
+}
+
+// GenData is the data struct for the generator.
+type GenData struct {
+	// PackageName is the package name of the generated code.
+	PackageName string
+
+	// TypeName is the name of the generated type.
+	TypeName string
+
+	// TypeSig is the signature of the generated type.
+	TypeSig string
+
+	// GenericsSign is the signature of the generics.
+	GenericsSign string
+
+	// CellType is the type of each table's cell.
+	CellType string
+}
+
+// SetPackageName implements the go_generator.Generater interface.
+func (g GenData) SetPackageName(pkg_name string) ggen.Generater {
+	g.PackageName = pkg_name
+
+	return g
+}
+
 func main() {
 	err := ggen.ParseFlags()
 	if err != nil {
 		Logger.Fatalf("Could not parse flags: %s", err.Error())
 	}
 
-	type_name := uc.AssertNil(pkg.TypeNameFlag, "TypeNameFlag")
+	type_name := uc.AssertNil(TypeNameFlag, "TypeNameFlag")
 
 	err = ggen.IsValidName(type_name, nil, ggen.Exported)
 	if err != nil {
@@ -54,7 +144,7 @@ func main() {
 		Logger.Fatalf("Could not get cell type: %s", err.Error())
 	}
 
-	data := pkg.GenData{
+	data := GenData{
 		TypeName:     type_name,
 		TypeSig:      type_sig,
 		GenericsSign: ggen.GenericsSigFlag.String(),
