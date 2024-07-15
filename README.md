@@ -28,7 +28,7 @@ Once imported, you can use the tool to generate tables for your own types. Like 
 ```go
 import _ "github.com/PlayerR9/table"
 
-// go:generate go run github.com/PlayerR9/table/cmd/table -name=Foo -type=int
+// go:generate go run github.com/PlayerR9/table/cmd -name=Foo -type=int
 ```
 
 This generates a table with the name "Foo" whose cells are of type "int".
