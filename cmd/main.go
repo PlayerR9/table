@@ -135,24 +135,33 @@ func main() {
 		Logger.Fatalf("Could not fix output location: %s", err.Error())
 	}
 
-	type_sig, err := ggen.MakeTypeSig(type_name, "")
-	if err != nil {
-		Logger.Fatalf("Could not make type signature: %s", err.Error())
-	}
-
-	cell_type, err := ggen.TypeListFlag.GetType(0)
-	if err != nil {
-		Logger.Fatalf("Could not get cell type: %s", err.Error())
-	}
-
 	data := GenData{
 		TypeName:     type_name,
-		TypeSig:      type_sig,
 		GenericsSign: ggen.GenericsSigFlag.String(),
-		CellType:     cell_type,
 	}
 
-	err = ggen.Generate(output_loc, data, t)
+	err = ggen.Generate(output_loc, data, t,
+		func(data GenData) GenData {
+			type_sig, err := ggen.MakeTypeSig(type_name, "")
+			if err != nil {
+				Logger.Fatalf("Could not make type signature: %s", err.Error())
+			}
+
+			data.TypeSig = type_sig
+
+			return data
+		},
+		func(data GenData) GenData {
+			cell_type, err := ggen.TypeListFlag.GetType(0)
+			if err != nil {
+				Logger.Fatalf("Could not get cell type: %s", err.Error())
+			}
+
+			data.CellType = cell_type
+
+			return data
+		},
+	)
 	if err != nil {
 		Logger.Fatalf("Could not generate code: %s", err.Error())
 	}
