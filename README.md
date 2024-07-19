@@ -18,7 +18,7 @@ A Go package used for generating tables implemented without bounds. It also feat
 
 To install the tool, run the following command:
 ```
-go get -u github.com/PlayerR9/table/cmd/table
+go get -u github.com/PlayerR9/table/cmd
 ```
 
 
@@ -28,7 +28,7 @@ Once imported, you can use the tool to generate tables for your own types. Like 
 ```go
 import _ "github.com/PlayerR9/table"
 
-// go:generate go run github.com/PlayerR9/table/cmd -name=Foo -type=int
+// go:generate go run table/cmd -name=Foo -type=int
 ```
 
 This generates a table with the name "Foo" whose cells are of type "int".
@@ -43,7 +43,7 @@ This command generates a table of the given type implemented as a boundless tabl
 
 To use it, run the following command:
 
-   go:generate go run github.com/PlayerR9/table/cmd/table -name=<type_name> -type=<type> [ -g=<generics>] [ -o=<output_file> ]
+   go:generate go run table/cmd -name=<type_name> -type=<type> [ -g=<generics>] [ -o=<output_file> ]
 
 **Flag: Name**
 
@@ -56,7 +56,7 @@ The "fields" flag is used to specify type of the table's cells. This flag must b
 
 For instance, running the following command:
 
-   go:generate treenode -name=Table -type=int
+   go:generate table -name=Table -type=int
 
 will generate a table with the following structure:
 
