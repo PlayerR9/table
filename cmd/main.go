@@ -2,7 +2,7 @@
 //
 // To use it, run the following command:
 //
-// //go:generate go run github.com/PlayerR9/table/cmd/table -name=<type_name> -type=<type> [ -g=<generics>] [ -o=<output_file> ]
+// //go:generate go run table/cmd -name=<type_name> -type=<type> [ -g=<generics>] [ -o=<output_file> ]
 //
 // **Flag: Name**
 //
@@ -62,7 +62,7 @@ import (
 	"text/template"
 
 	uc "github.com/PlayerR9/MyGoLib/Units/common"
-	ggen "github.com/PlayerR9/MyGoLib/go_generator"
+	ggen "github.com/PlayerR9/MyGoLib/Utility/go_generator"
 )
 
 var (
@@ -141,25 +141,25 @@ func main() {
 	}
 
 	err = ggen.Generate(output_loc, data, t,
-		func(data GenData) GenData {
+		func(data *GenData) error {
 			type_sig, err := ggen.MakeTypeSig(type_name, "")
 			if err != nil {
-				Logger.Fatalf("Could not make type signature: %s", err.Error())
+				return err
 			}
 
 			data.TypeSig = type_sig
 
-			return data
+			return nil
 		},
-		func(data GenData) GenData {
+		func(data *GenData) error {
 			cell_type, err := ggen.TypeListFlag.GetType(0)
 			if err != nil {
-				Logger.Fatalf("Could not get cell type: %s", err.Error())
+				return err
 			}
 
 			data.CellType = cell_type
 
-			return data
+			return nil
 		},
 	)
 	if err != nil {
