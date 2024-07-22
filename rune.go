@@ -112,7 +112,7 @@ func (t *RuneTable) WriteAt(x, y int, cell rune) {
 //   - rune: The cell at the given coordinates.
 func (t *RuneTable) GetAt(x, y int) rune {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(rune)
+		return '\u0000'
 	} else {
 		return t.table[y][x]
 	}

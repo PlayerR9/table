@@ -112,7 +112,7 @@ func (t *Complex128Table) WriteAt(x, y int, cell complex128) {
 //   - complex128: The cell at the given coordinates.
 func (t *Complex128Table) GetAt(x, y int) complex128 {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(complex128)
+		return 0
 	} else {
 		return t.table[y][x]
 	}

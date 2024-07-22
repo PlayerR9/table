@@ -112,7 +112,7 @@ func (t *BoolTable) WriteAt(x, y int, cell bool) {
 //   - bool: The cell at the given coordinates.
 func (t *BoolTable) GetAt(x, y int) bool {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(bool)
+		return false
 	} else {
 		return t.table[y][x]
 	}

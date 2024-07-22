@@ -108,6 +108,9 @@ type GenData struct {
 
 	// CellType is the type of each table's cell.
 	CellType string
+
+	// ZeroValue is the zero value of the cell type.
+	ZeroValue string
 }
 
 // SetPackageName implements the go_generator.Generater interface.
@@ -158,6 +161,11 @@ func main() {
 			}
 
 			data.CellType = cell_type
+
+			return nil
+		},
+		func(data *GenData) error {
+			data.ZeroValue = ggen.ZeroValueOf(data.CellType)
 
 			return nil
 		},
@@ -281,7 +289,7 @@ func (t *{{ .TypeSig }}) WriteAt(x, y int, cell {{ .CellType }}) {
 //   - {{ .CellType }}: The cell at the given coordinates.
 func (t *{{ .TypeSig }}) GetAt(x, y int) {{ .CellType }} {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new({{ .CellType }})
+		return {{ .ZeroValue }}
 	} else {
 		return t.table[y][x]
 	}

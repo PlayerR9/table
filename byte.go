@@ -112,7 +112,7 @@ func (t *ByteTable) WriteAt(x, y int, cell byte) {
 //   - byte: The cell at the given coordinates.
 func (t *ByteTable) GetAt(x, y int) byte {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(byte)
+		return 0
 	} else {
 		return t.table[y][x]
 	}

@@ -112,7 +112,7 @@ func (t *ErrorTable) WriteAt(x, y int, cell error) {
 //   - error: The cell at the given coordinates.
 func (t *ErrorTable) GetAt(x, y int) error {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(error)
+		return nil
 	} else {
 		return t.table[y][x]
 	}

@@ -112,7 +112,7 @@ func (t *Float64Table) WriteAt(x, y int, cell float64) {
 //   - float64: The cell at the given coordinates.
 func (t *Float64Table) GetAt(x, y int) float64 {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(float64)
+		return 0.0
 	} else {
 		return t.table[y][x]
 	}

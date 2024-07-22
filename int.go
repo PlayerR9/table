@@ -112,7 +112,7 @@ func (t *IntTable) WriteAt(x, y int, cell int) {
 //   - int: The cell at the given coordinates.
 func (t *IntTable) GetAt(x, y int) int {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
-		return *new(int)
+		return 0
 	} else {
 		return t.table[y][x]
 	}
