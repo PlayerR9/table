@@ -61,8 +61,8 @@ import (
 	"log"
 	"text/template"
 
-	ggen "github.com/PlayerR9/go_generator/Generator"
 	uc "github.com/PlayerR9/lib_units/common"
+	ggen "github.com/PlayerR9/lib_units/generator"
 )
 
 var (
