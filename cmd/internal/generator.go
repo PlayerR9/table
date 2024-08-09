@@ -2,9 +2,8 @@ package internal
 
 import (
 	"log"
-	"os"
 
-	ggen "github.com/PlayerR9/lib_units/generator"
+	ggen "github.com/PlayerR9/go-generator/generator"
 )
 
 var (
@@ -16,7 +15,7 @@ var (
 )
 
 func init() {
-	Logger = ggen.InitLogger(os.Stdout, "table")
+	Logger = ggen.InitLogger(nil, "table")
 
 	tmp, err := ggen.NewCodeGeneratorFromTemplate[*GenData]("", templ)
 	if err != nil {
@@ -24,7 +23,7 @@ func init() {
 	}
 
 	tmp.AddDoFunc(func(data *GenData) error {
-		type_sig, err := ggen.MakeTypeSig(data.TypeName, "")
+		type_sig, err := ggen.MakeTypeSign(GenericsFlag, data.TypeName, "")
 		if err != nil {
 			return err
 		}
@@ -35,7 +34,7 @@ func init() {
 	})
 
 	tmp.AddDoFunc(func(data *GenData) error {
-		cell_type, err := ggen.TypeListFlag.Type(0)
+		cell_type, err := TypeListFlag.Type(0)
 		if err != nil {
 			return err
 		}

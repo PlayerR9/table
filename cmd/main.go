@@ -57,10 +57,6 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-
-	ggen "github.com/PlayerR9/lib_units/generator"
 	pkg "github.com/PlayerR9/table/cmd/internal"
 )
 
@@ -72,22 +68,15 @@ func main() {
 
 	g := &pkg.GenData{
 		TypeName:     type_name,
-		GenericsSign: ggen.GenericsSigFlag.String(),
+		GenericsSign: pkg.GenericsFlag.String(),
 	}
 
-	res, err := pkg.Generator.Generate(type_name, "_table.go", g)
+	res, err := pkg.Generator.Generate(pkg.OutputLocFlag, "_table.go", g)
 	if err != nil {
 		pkg.Logger.Fatalf("Could not generate code: %s", err.Error())
 	}
 
-	dir := filepath.Dir(res.DestLoc)
-
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		pkg.Logger.Fatalf("Could not create directory: %s", err.Error())
-	}
-
-	err = os.WriteFile(res.DestLoc, res.Data, 0644)
+	err = res.WriteFile()
 	if err != nil {
 		pkg.Logger.Fatalf("Could not write to file: %s", err.Error())
 	}
