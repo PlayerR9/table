@@ -5,15 +5,15 @@ import (
 	"flag"
 	"fmt"
 
-	ggen "github.com/PlayerR9/go-generator/generator"
+	gcgen "github.com/PlayerR9/go-commons/generator"
 )
 
 var (
-	OutputLocFlag *ggen.OutputLocVal
+	OutputLocFlag *gcgen.OutputLocVal
 
-	TypeListFlag *ggen.TypeListVal
+	TypeListFlag *gcgen.TypeListVal
 
-	GenericsFlag *ggen.GenericsSignVal
+	GenericsFlag *gcgen.GenericsSignVal
 
 	TypeNameFlag *string
 )
@@ -21,14 +21,14 @@ var (
 func init() {
 	TypeNameFlag = flag.String("name", "", "The name of the generated type. It must be set.")
 
-	OutputLocFlag = ggen.NewOutputFlag("<type>_table.go", false)
+	OutputLocFlag = gcgen.NewOutputFlag("<type>_table.go", false)
 
-	TypeListFlag = ggen.NewTypeListFlag("type", true, 1, "The type of each table's cell.")
-	GenericsFlag = ggen.NewGenericsSignFlag("g", false, 1)
+	TypeListFlag = gcgen.NewTypeListFlag("type", true, 1, "The type of each table's cell.")
+	GenericsFlag = gcgen.NewGenericsSignFlag("g", false, 1)
 }
 
 func Parse() (string, error) {
-	ggen.ParseFlags()
+	gcgen.ParseFlags()
 
 	if TypeNameFlag == nil {
 		return "", errors.New("flag TypeNameFlag must be set")
@@ -36,7 +36,7 @@ func Parse() (string, error) {
 
 	type_name := *TypeNameFlag
 
-	err := ggen.IsValidVariableName(type_name, nil, ggen.Exported)
+	err := gcgen.IsValidVariableName(type_name, nil, gcgen.Exported)
 	if err != nil {
 		return "", fmt.Errorf("could not validate type name: %w", err)
 	}

@@ -13,40 +13,6 @@ type Complex64Table struct {
 	width, height int
 }
 
-// Iterator implements the errors.Iterable interface.
-//
-// The returned iterator is a pull-model iterator that scans the table row by row 
-// as it was an array of elements of type complex64.
-//
-// Example:
-//
-//	[ a b c ]
-//	[ d e f ]
-//
-//	Iterator() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *Complex64Table) Iterator() iter.Seq[complex64] {
-	fn := func(yield func(complex64) bool) {
-		for i := 0; i < t.height; i++ {
-			for j := 0; j < t.width; j++ {
-				if !yield(t.table[i][j]) {
-					return
-				}
-			}
-		}
-	}
-
-	return fn
-}
-
-// Cleanup implements the Utility.Cleaner interface.
-//
-// It sets all cells in the table to the zero value of type complex64.
-func (t *Complex64Table) Cleanup() {
-	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]complex64, t.width)
-	}
-}
-
 // NewComplex64Table creates a new table of type complex64 with the given width and height.
 // Negative parameters are treated as absolute values.
 //
@@ -74,6 +40,38 @@ func NewComplex64Table(width, height int) *Complex64Table {
 		table:  table,
 		width:  width,
 		height: height,
+	}
+}
+
+// Cell returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type complex64.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
+func (t *Complex64Table) Cell() iter.Seq[complex64] {
+	fn := func(yield func(complex64) bool) {
+		for i := 0; i < t.height; i++ {
+			for j := 0; j < t.width; j++ {
+				if !yield(t.table[i][j]) {
+					return
+				}
+			}
+		}
+	}
+
+	return fn
+}
+
+// Cleanup is a method that cleans up the table.
+//
+// It sets all cells in the table to the zero value of type complex64.
+func (t *Complex64Table) Cleanup() {
+	for i := 0; i < t.height; i++ {
+		t.table[i] = make([]complex64, t.width)
 	}
 }
 

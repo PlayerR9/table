@@ -3,7 +3,7 @@ package internal
 import (
 	"log"
 
-	ggen "github.com/PlayerR9/go-generator/generator"
+	gcgen "github.com/PlayerR9/go-commons/generator"
 )
 
 var (
@@ -11,19 +11,19 @@ var (
 	Logger *log.Logger
 
 	// Generator is the generator to use.
-	Generator *ggen.CodeGenerator[*GenData]
+	Generator *gcgen.CodeGenerator[*GenData]
 )
 
 func init() {
-	Logger = ggen.InitLogger(nil, "table")
+	Logger = gcgen.InitLogger(nil, "table")
 
-	tmp, err := ggen.NewCodeGeneratorFromTemplate[*GenData]("", templ)
+	tmp, err := gcgen.NewCodeGeneratorFromTemplate[*GenData]("", templ)
 	if err != nil {
 		Logger.Fatalf("Could not create code generator: %s", err.Error())
 	}
 
 	tmp.AddDoFunc(func(data *GenData) error {
-		type_sig, err := ggen.MakeTypeSign(GenericsFlag, data.TypeName, "")
+		type_sig, err := gcgen.MakeTypeSign(GenericsFlag, data.TypeName, "")
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func init() {
 	})
 
 	tmp.AddDoFunc(func(data *GenData) error {
-		data.ZeroValue = ggen.ZeroValueOf(data.CellType, nil)
+		data.ZeroValue = gcgen.ZeroValueOf(data.CellType, nil)
 
 		return nil
 	})
@@ -94,40 +94,6 @@ type {{ .TypeName }}{{ .GenericsSign }} struct {
 	width, height int
 }
 
-// Iterator implements the errors.Iterable interface.
-//
-// The returned iterator is a pull-model iterator that scans the table row by row 
-// as it was an array of elements of type {{ .CellType }}.
-//
-// Example:
-//
-//	[ a b c ]
-//	[ d e f ]
-//
-//	Iterator() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *{{ .TypeSig }}) Iterator() iter.Seq[{{ .CellType }}] {
-	fn := func(yield func({{ .CellType }}) bool) {
-		for i := 0; i < t.height; i++ {
-			for j := 0; j < t.width; j++ {
-				if !yield(t.table[i][j]) {
-					return
-				}
-			}
-		}
-	}
-
-	return fn
-}
-
-// Cleanup implements the Utility.Cleaner interface.
-//
-// It sets all cells in the table to the zero value of type {{ .CellType }}.
-func (t *{{ .TypeSig }}) Cleanup() {
-	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]{{ .CellType }}, t.width)
-	}
-}
-
 // New{{ .TypeName }} creates a new table of type {{ .CellType }} with the given width and height.
 // Negative parameters are treated as absolute values.
 //
@@ -155,6 +121,38 @@ func New{{ .TypeName }}{{ .GenericsSign }}(width, height int) *{{ .TypeSig }} {
 		table:  table,
 		width:  width,
 		height: height,
+	}
+}
+
+// Cell returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type {{ .CellType }}.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
+func (t *{{ .TypeSig }}) Cell() iter.Seq[{{ .CellType }}] {
+	fn := func(yield func({{ .CellType }}) bool) {
+		for i := 0; i < t.height; i++ {
+			for j := 0; j < t.width; j++ {
+				if !yield(t.table[i][j]) {
+					return
+				}
+			}
+		}
+	}
+
+	return fn
+}
+
+// Cleanup is a method that cleans up the table.
+//
+// It sets all cells in the table to the zero value of type {{ .CellType }}.
+func (t *{{ .TypeSig }}) Cleanup() {
+	for i := 0; i < t.height; i++ {
+		t.table[i] = make([]{{ .CellType }}, t.width)
 	}
 }
 

@@ -13,40 +13,6 @@ type Table[T any] struct {
 	width, height int
 }
 
-// Iterator implements the errors.Iterable interface.
-//
-// The returned iterator is a pull-model iterator that scans the table row by row 
-// as it was an array of elements of type T.
-//
-// Example:
-//
-//	[ a b c ]
-//	[ d e f ]
-//
-//	Iterator() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *Table[T]) Iterator() iter.Seq[T] {
-	fn := func(yield func(T) bool) {
-		for i := 0; i < t.height; i++ {
-			for j := 0; j < t.width; j++ {
-				if !yield(t.table[i][j]) {
-					return
-				}
-			}
-		}
-	}
-
-	return fn
-}
-
-// Cleanup implements the Utility.Cleaner interface.
-//
-// It sets all cells in the table to the zero value of type T.
-func (t *Table[T]) Cleanup() {
-	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]T, t.width)
-	}
-}
-
 // NewTable creates a new table of type T with the given width and height.
 // Negative parameters are treated as absolute values.
 //
@@ -74,6 +40,38 @@ func NewTable[T any](width, height int) *Table[T] {
 		table:  table,
 		width:  width,
 		height: height,
+	}
+}
+
+// Cell returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type T.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
+func (t *Table[T]) Cell() iter.Seq[T] {
+	fn := func(yield func(T) bool) {
+		for i := 0; i < t.height; i++ {
+			for j := 0; j < t.width; j++ {
+				if !yield(t.table[i][j]) {
+					return
+				}
+			}
+		}
+	}
+
+	return fn
+}
+
+// Cleanup is a method that cleans up the table.
+//
+// It sets all cells in the table to the zero value of type T.
+func (t *Table[T]) Cleanup() {
+	for i := 0; i < t.height; i++ {
+		t.table[i] = make([]T, t.width)
 	}
 }
 

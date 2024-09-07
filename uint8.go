@@ -13,40 +13,6 @@ type Uint8Table struct {
 	width, height int
 }
 
-// Iterator implements the errors.Iterable interface.
-//
-// The returned iterator is a pull-model iterator that scans the table row by row 
-// as it was an array of elements of type uint8.
-//
-// Example:
-//
-//	[ a b c ]
-//	[ d e f ]
-//
-//	Iterator() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *Uint8Table) Iterator() iter.Seq[uint8] {
-	fn := func(yield func(uint8) bool) {
-		for i := 0; i < t.height; i++ {
-			for j := 0; j < t.width; j++ {
-				if !yield(t.table[i][j]) {
-					return
-				}
-			}
-		}
-	}
-
-	return fn
-}
-
-// Cleanup implements the Utility.Cleaner interface.
-//
-// It sets all cells in the table to the zero value of type uint8.
-func (t *Uint8Table) Cleanup() {
-	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]uint8, t.width)
-	}
-}
-
 // NewUint8Table creates a new table of type uint8 with the given width and height.
 // Negative parameters are treated as absolute values.
 //
@@ -74,6 +40,38 @@ func NewUint8Table(width, height int) *Uint8Table {
 		table:  table,
 		width:  width,
 		height: height,
+	}
+}
+
+// Cell returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type uint8.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
+func (t *Uint8Table) Cell() iter.Seq[uint8] {
+	fn := func(yield func(uint8) bool) {
+		for i := 0; i < t.height; i++ {
+			for j := 0; j < t.width; j++ {
+				if !yield(t.table[i][j]) {
+					return
+				}
+			}
+		}
+	}
+
+	return fn
+}
+
+// Cleanup is a method that cleans up the table.
+//
+// It sets all cells in the table to the zero value of type uint8.
+func (t *Uint8Table) Cleanup() {
+	for i := 0; i < t.height; i++ {
+		t.table[i] = make([]uint8, t.width)
 	}
 }
 
