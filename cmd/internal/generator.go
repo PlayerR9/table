@@ -91,6 +91,7 @@ package {{ .PackageName }}
 import (
 	"iter"	
 
+	"github.com/PlayerR9/go-commons/errors"
 	"github.com/PlayerR9/go-commons/ints"
 )
 
@@ -108,26 +109,28 @@ type {{ .TypeName }}{{ .GenericsSign }} struct {
 //   - height: The height of the table.
 //
 // Returns:
-//   - *{{ .TypeSig }}: The new table. Never nil.
-func New{{ .TypeName }}{{ .GenericsSign }}(width, height int) *{{ .TypeSig }} {
+//   - *{{ .TypeSig }}: The new table.
+//   - error: An error if the table could not be created.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the width or height is less than 0.
+func New{{ .TypeName }}{{ .GenericsSign }}(width, height int) (*{{ .TypeSig }}, error) {
 	if width < 0 {
-		width = -width
+		return nil, errors.NewErrInvalidParameter("width", errors.NewErrGTE(0))
+	} else if height < 0 {
+		return nil, errors.NewErrInvalidParameter("height", errors.NewErrGTE(0))
 	}
 
-	if height < 0 {
-		height = -height
-	}
-
-	table := make([][]{{ .CellType }}, height)
+	table := make([][]{{ .CellType }}, 0, height)
 	for i := 0; i < height; i++ {
-		table[i] = make([]{{ .CellType }}, width)
+		table = append(table, make([]{{ .CellType }}, width))
 	}
 
 	return &{{ .TypeSig }}{
 		table:  table,
 		width:  width,
 		height: height,
-	}
+	}, nil
 }
 
 // Cell returns an iterator that is a pull-model iterator that scans the table row by
@@ -139,7 +142,7 @@ func New{{ .TypeName }}{{ .GenericsSign }}(width, height int) *{{ .TypeSig }} {
 //	[ d e f ]
 //
 //	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *{{ .TypeSig }}) Cell() iter.Seq[{{ .CellType }}] {
+func (t {{ .TypeSig }}) Cell() iter.Seq[{{ .CellType }}] {
 	fn := func(yield func({{ .CellType }}) bool) {
 		for i := 0; i < t.height; i++ {
 			for j := 0; j < t.width; j++ {
@@ -153,28 +156,52 @@ func (t *{{ .TypeSig }}) Cell() iter.Seq[{{ .CellType }}] {
 	return fn
 }
 
+// Row returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type []{{ .CellType }}.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Row(0) -> [ a b c ]
+//	Row(1) -> [ d e f ]
+func (t {{ .TypeSig }}) Row() iter.Seq[[]{{ .CellType }}] {
+	fn := func(yield func([]{{ .CellType }}) bool) {
+		for i := 0; i < t.height; i++ {
+			if !yield(t.table[i]) {
+				return
+			}
+		}
+	}
+
+	return fn
+}
+
 // Cleanup is a method that cleans up the table.
 //
 // It sets all cells in the table to the zero value of type {{ .CellType }}.
-func (t *{{ .TypeSig }}) Cleanup() {
+func (t {{ .TypeSig }}) Cleanup() {
 	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]{{ .CellType }}, t.width)
+		for j := 0; j < t.width; j++ {
+			t.table[i][j] = {{ .ZeroValue }}
+		}
 	}
 }
 
-// GetWidth returns the width of the table.
+// Width returns the width of the table.
 //
 // Returns:
 //   - int: The width of the table. Never negative.
-func (t *{{ .TypeSig }}) GetWidth() int {
+func (t {{ .TypeSig }}) Width() int {
 	return t.width
 }
 
-// GetHeight returns the height of the table.
+// Height returns the height of the table.
 //
 // Returns:
 //   - int: The height of the table. Never negative.
-func (t *{{ .TypeSig }}) GetHeight() int {
+func (t {{ .TypeSig }}) Height() int {
 	return t.height
 }
 
@@ -185,7 +212,7 @@ func (t *{{ .TypeSig }}) GetHeight() int {
 //   - x: The x-coordinate of the cell.
 //   - y: The y-coordinate of the cell.
 //   - cell: The cell to write to the table.
-func (t *{{ .TypeSig }}) WriteAt(x, y int, cell {{ .CellType }}) {
+func (t {{ .TypeSig }}) WriteAt(x, y int, cell {{ .CellType }}) {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return
 	}
@@ -193,8 +220,8 @@ func (t *{{ .TypeSig }}) WriteAt(x, y int, cell {{ .CellType }}) {
 	t.table[y][x] = cell
 }
 
-// GetAt returns the cell at the given coordinates in the table. However, out-of-bounds
-// coordinates return the zero value of type {{ .CellType }}.
+// CellAt returns the cell at the given coordinates in the table. However, out-of-bounds
+// coordinates return {{ .ZeroValue }}.
 //
 // Parameters:
 //   - x: The x-coordinate of the cell.
@@ -202,7 +229,7 @@ func (t *{{ .TypeSig }}) WriteAt(x, y int, cell {{ .CellType }}) {
 //
 // Returns:
 //   - {{ .CellType }}: The cell at the given coordinates.
-func (t *{{ .TypeSig }}) GetAt(x, y int) {{ .CellType }} {
+func (t {{ .TypeSig }}) CellAt(x, y int) {{ .CellType }} {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return {{ .ZeroValue }}
 	} else {
@@ -244,14 +271,14 @@ func (t *{{ .TypeSig }}) GetAt(x, y int) {{ .CellType }} {
 //
 // As you can see, the 'g' value was ignored as it would be out-of-bounds.
 // Finally, if either x or y is nil, the function does nothing.
-func (t *{{ .TypeSig }}) WriteVerticalSequence(x, y *int, sequence []{{ .CellType }}) {
-	if x == nil || y == nil {
+func (t {{ .TypeSig }}) WriteVerticalSequence(x, y *int, sequence []{{ .CellType }}) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualX < 0 || actualX >= t.width || actualY >= t.height {
+	if actualX < 0 || actualX >= t.width || actualY >= t.height {
 		return
 	}
 
@@ -279,14 +306,14 @@ func (t *{{ .TypeSig }}) WriteVerticalSequence(x, y *int, sequence []{{ .CellTyp
 //   - x: The x-coordinate of the starting cell.
 //   - y: The y-coordinate of the starting cell.
 //   - sequence: The sequence of cells to write to the table.
-func (t *{{ .TypeSig }}) WriteHorizontalSequence(x, y *int, sequence []{{ .CellType }}) {
-	if x == nil || y == nil {
+func (t {{ .TypeSig }}) WriteHorizontalSequence(x, y *int, sequence []{{ .CellType }}) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualY < 0 || actualY >= t.height || actualX >= t.width {
+	if actualY < 0 || actualY >= t.height || actualX >= t.width {
 		return
 	}
 
@@ -303,11 +330,11 @@ func (t *{{ .TypeSig }}) WriteHorizontalSequence(x, y *int, sequence []{{ .CellT
 	*x = actualX + len(sequence)
 }
 
-// GetFullTable returns the full table as a 2D slice of elements of type {{ .CellType }}.
+// FullTable returns the full table as a 2D slice of elements of type {{ .CellType }}.
 //
 // Returns:
 //   - [][]{{ .CellType }}: The full table.
-func (t *{{ .TypeSig }}) GetFullTable() [][]{{ .CellType }} {
+func (t {{ .TypeSig }}) FullTable() [][]{{ .CellType }} {
 	return t.table
 }
 
@@ -318,7 +345,7 @@ func (t *{{ .TypeSig }}) GetFullTable() [][]{{ .CellType }} {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the x-coordinate is out of bounds.
-func (t *{{ .TypeSig }}) IsXInBounds(x int) error {
+func (t {{ .TypeSig }}) IsXInBounds(x int) error {
 	if x < 0 || x >= t.width {
 		return ints.NewErrOutOfBounds(x, 0, t.width)
 	} else {
@@ -333,7 +360,7 @@ func (t *{{ .TypeSig }}) IsXInBounds(x int) error {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the y-coordinate is out of bounds.
-func (t *{{ .TypeSig }}) IsYInBounds(y int) error {
+func (t {{ .TypeSig }}) IsYInBounds(y int) error {
 	if y < 0 || y >= t.height {
 		return ints.NewErrOutOfBounds(y, 0, t.height)
 	} else {
@@ -356,7 +383,7 @@ func (t *{{ .TypeSig }}) IsYInBounds(y int) error {
 //   - y: The y-coordinate to write the table at.
 //
 // If the table is nil, x or y are nil, nothing happens.
-func (t *{{ .TypeSig }}) WriteTableAt(table *{{ .TypeSig }}, x, y *int) {
+func (t {{ .TypeSig }}) WriteTableAt(table *{{ .TypeSig }}, x, y *int) {
 	if table == nil || x == nil || y == nil {
 		return
 	}
@@ -377,4 +404,70 @@ func (t *{{ .TypeSig }}) WriteTableAt(table *{{ .TypeSig }}, x, y *int) {
 
 	*x += offsetX
 	*y += offsetY
+}
+	
+// ResizeWidth resizes the table to the given width.
+//
+// Parameters:
+//   - new_width: The new width of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new width is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *{{ .TypeSig }}) ResizeWidth(new_width int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_width < 0 {
+		return errors.NewErrInvalidParameter("new_width", errors.NewErrGTE(0))
+	}
+
+	if new_width == t.width {
+		return nil
+	} else if new_width < t.width {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = t.table[i][:new_width]
+		}
+	} else {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = append(t.table[i], make([]{{ .CellType }}, new_width-t.width)...)
+		}
+	}
+
+	t.width = new_width
+
+	return nil
+}
+
+// ResizeHeight resizes the table to the given height.
+//
+// Parameters:
+//   - new_height: The new height of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new height is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *{{ .TypeSig }}) ResizeHeight(new_height int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_height < 0 {
+		return errors.NewErrInvalidParameter("new_height", errors.NewErrGTE(0))
+	}
+
+	if new_height == t.height {
+		return nil
+	} else if new_height < t.height {
+		t.table = t.table[:new_height]
+	} else {
+		t.table = append(t.table, make([][]{{ .CellType }}, new_height-t.height)...)
+	}
+
+	t.height = new_height
+
+	return nil
 }`

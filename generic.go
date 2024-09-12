@@ -4,6 +4,7 @@ package table
 import (
 	"iter"	
 
+	"github.com/PlayerR9/go-commons/errors"
 	"github.com/PlayerR9/go-commons/ints"
 )
 
@@ -21,26 +22,28 @@ type Table[T any] struct {
 //   - height: The height of the table.
 //
 // Returns:
-//   - *Table[T]: The new table. Never nil.
-func NewTable[T any](width, height int) *Table[T] {
+//   - *Table[T]: The new table.
+//   - error: An error if the table could not be created.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the width or height is less than 0.
+func NewTable[T any](width, height int) (*Table[T], error) {
 	if width < 0 {
-		width = -width
+		return nil, errors.NewErrInvalidParameter("width", errors.NewErrGTE(0))
+	} else if height < 0 {
+		return nil, errors.NewErrInvalidParameter("height", errors.NewErrGTE(0))
 	}
 
-	if height < 0 {
-		height = -height
-	}
-
-	table := make([][]T, height)
+	table := make([][]T, 0, height)
 	for i := 0; i < height; i++ {
-		table[i] = make([]T, width)
+		table = append(table, make([]T, width))
 	}
 
 	return &Table[T]{
 		table:  table,
 		width:  width,
 		height: height,
-	}
+	}, nil
 }
 
 // Cell returns an iterator that is a pull-model iterator that scans the table row by
@@ -52,7 +55,7 @@ func NewTable[T any](width, height int) *Table[T] {
 //	[ d e f ]
 //
 //	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *Table[T]) Cell() iter.Seq[T] {
+func (t Table[T]) Cell() iter.Seq[T] {
 	fn := func(yield func(T) bool) {
 		for i := 0; i < t.height; i++ {
 			for j := 0; j < t.width; j++ {
@@ -66,28 +69,52 @@ func (t *Table[T]) Cell() iter.Seq[T] {
 	return fn
 }
 
+// Row returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type []T.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Row(0) -> [ a b c ]
+//	Row(1) -> [ d e f ]
+func (t Table[T]) Row() iter.Seq[[]T] {
+	fn := func(yield func([]T) bool) {
+		for i := 0; i < t.height; i++ {
+			if !yield(t.table[i]) {
+				return
+			}
+		}
+	}
+
+	return fn
+}
+
 // Cleanup is a method that cleans up the table.
 //
 // It sets all cells in the table to the zero value of type T.
-func (t *Table[T]) Cleanup() {
+func (t Table[T]) Cleanup() {
 	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]T, t.width)
+		for j := 0; j < t.width; j++ {
+			t.table[i][j] = *new(T)
+		}
 	}
 }
 
-// GetWidth returns the width of the table.
+// Width returns the width of the table.
 //
 // Returns:
 //   - int: The width of the table. Never negative.
-func (t *Table[T]) GetWidth() int {
+func (t Table[T]) Width() int {
 	return t.width
 }
 
-// GetHeight returns the height of the table.
+// Height returns the height of the table.
 //
 // Returns:
 //   - int: The height of the table. Never negative.
-func (t *Table[T]) GetHeight() int {
+func (t Table[T]) Height() int {
 	return t.height
 }
 
@@ -98,7 +125,7 @@ func (t *Table[T]) GetHeight() int {
 //   - x: The x-coordinate of the cell.
 //   - y: The y-coordinate of the cell.
 //   - cell: The cell to write to the table.
-func (t *Table[T]) WriteAt(x, y int, cell T) {
+func (t Table[T]) WriteAt(x, y int, cell T) {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return
 	}
@@ -106,8 +133,8 @@ func (t *Table[T]) WriteAt(x, y int, cell T) {
 	t.table[y][x] = cell
 }
 
-// GetAt returns the cell at the given coordinates in the table. However, out-of-bounds
-// coordinates return the zero value of type T.
+// CellAt returns the cell at the given coordinates in the table. However, out-of-bounds
+// coordinates return *new(T).
 //
 // Parameters:
 //   - x: The x-coordinate of the cell.
@@ -115,7 +142,7 @@ func (t *Table[T]) WriteAt(x, y int, cell T) {
 //
 // Returns:
 //   - T: The cell at the given coordinates.
-func (t *Table[T]) GetAt(x, y int) T {
+func (t Table[T]) CellAt(x, y int) T {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return *new(T)
 	} else {
@@ -157,14 +184,14 @@ func (t *Table[T]) GetAt(x, y int) T {
 //
 // As you can see, the 'g' value was ignored as it would be out-of-bounds.
 // Finally, if either x or y is nil, the function does nothing.
-func (t *Table[T]) WriteVerticalSequence(x, y *int, sequence []T) {
-	if x == nil || y == nil {
+func (t Table[T]) WriteVerticalSequence(x, y *int, sequence []T) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualX < 0 || actualX >= t.width || actualY >= t.height {
+	if actualX < 0 || actualX >= t.width || actualY >= t.height {
 		return
 	}
 
@@ -192,14 +219,14 @@ func (t *Table[T]) WriteVerticalSequence(x, y *int, sequence []T) {
 //   - x: The x-coordinate of the starting cell.
 //   - y: The y-coordinate of the starting cell.
 //   - sequence: The sequence of cells to write to the table.
-func (t *Table[T]) WriteHorizontalSequence(x, y *int, sequence []T) {
-	if x == nil || y == nil {
+func (t Table[T]) WriteHorizontalSequence(x, y *int, sequence []T) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualY < 0 || actualY >= t.height || actualX >= t.width {
+	if actualY < 0 || actualY >= t.height || actualX >= t.width {
 		return
 	}
 
@@ -216,11 +243,11 @@ func (t *Table[T]) WriteHorizontalSequence(x, y *int, sequence []T) {
 	*x = actualX + len(sequence)
 }
 
-// GetFullTable returns the full table as a 2D slice of elements of type T.
+// FullTable returns the full table as a 2D slice of elements of type T.
 //
 // Returns:
 //   - [][]T: The full table.
-func (t *Table[T]) GetFullTable() [][]T {
+func (t Table[T]) FullTable() [][]T {
 	return t.table
 }
 
@@ -231,7 +258,7 @@ func (t *Table[T]) GetFullTable() [][]T {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the x-coordinate is out of bounds.
-func (t *Table[T]) IsXInBounds(x int) error {
+func (t Table[T]) IsXInBounds(x int) error {
 	if x < 0 || x >= t.width {
 		return ints.NewErrOutOfBounds(x, 0, t.width)
 	} else {
@@ -246,7 +273,7 @@ func (t *Table[T]) IsXInBounds(x int) error {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the y-coordinate is out of bounds.
-func (t *Table[T]) IsYInBounds(y int) error {
+func (t Table[T]) IsYInBounds(y int) error {
 	if y < 0 || y >= t.height {
 		return ints.NewErrOutOfBounds(y, 0, t.height)
 	} else {
@@ -269,7 +296,7 @@ func (t *Table[T]) IsYInBounds(y int) error {
 //   - y: The y-coordinate to write the table at.
 //
 // If the table is nil, x or y are nil, nothing happens.
-func (t *Table[T]) WriteTableAt(table *Table[T], x, y *int) {
+func (t Table[T]) WriteTableAt(table *Table[T], x, y *int) {
 	if table == nil || x == nil || y == nil {
 		return
 	}
@@ -290,4 +317,70 @@ func (t *Table[T]) WriteTableAt(table *Table[T], x, y *int) {
 
 	*x += offsetX
 	*y += offsetY
+}
+	
+// ResizeWidth resizes the table to the given width.
+//
+// Parameters:
+//   - new_width: The new width of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new width is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *Table[T]) ResizeWidth(new_width int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_width < 0 {
+		return errors.NewErrInvalidParameter("new_width", errors.NewErrGTE(0))
+	}
+
+	if new_width == t.width {
+		return nil
+	} else if new_width < t.width {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = t.table[i][:new_width]
+		}
+	} else {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = append(t.table[i], make([]T, new_width-t.width)...)
+		}
+	}
+
+	t.width = new_width
+
+	return nil
+}
+
+// ResizeHeight resizes the table to the given height.
+//
+// Parameters:
+//   - new_height: The new height of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new height is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *Table[T]) ResizeHeight(new_height int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_height < 0 {
+		return errors.NewErrInvalidParameter("new_height", errors.NewErrGTE(0))
+	}
+
+	if new_height == t.height {
+		return nil
+	} else if new_height < t.height {
+		t.table = t.table[:new_height]
+	} else {
+		t.table = append(t.table, make([][]T, new_height-t.height)...)
+	}
+
+	t.height = new_height
+
+	return nil
 }

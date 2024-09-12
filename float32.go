@@ -4,6 +4,7 @@ package table
 import (
 	"iter"	
 
+	"github.com/PlayerR9/go-commons/errors"
 	"github.com/PlayerR9/go-commons/ints"
 )
 
@@ -21,26 +22,28 @@ type Float32Table struct {
 //   - height: The height of the table.
 //
 // Returns:
-//   - *Float32Table: The new table. Never nil.
-func NewFloat32Table(width, height int) *Float32Table {
+//   - *Float32Table: The new table.
+//   - error: An error if the table could not be created.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the width or height is less than 0.
+func NewFloat32Table(width, height int) (*Float32Table, error) {
 	if width < 0 {
-		width = -width
+		return nil, errors.NewErrInvalidParameter("width", errors.NewErrGTE(0))
+	} else if height < 0 {
+		return nil, errors.NewErrInvalidParameter("height", errors.NewErrGTE(0))
 	}
 
-	if height < 0 {
-		height = -height
-	}
-
-	table := make([][]float32, height)
+	table := make([][]float32, 0, height)
 	for i := 0; i < height; i++ {
-		table[i] = make([]float32, width)
+		table = append(table, make([]float32, width))
 	}
 
 	return &Float32Table{
 		table:  table,
 		width:  width,
 		height: height,
-	}
+	}, nil
 }
 
 // Cell returns an iterator that is a pull-model iterator that scans the table row by
@@ -52,7 +55,7 @@ func NewFloat32Table(width, height int) *Float32Table {
 //	[ d e f ]
 //
 //	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *Float32Table) Cell() iter.Seq[float32] {
+func (t Float32Table) Cell() iter.Seq[float32] {
 	fn := func(yield func(float32) bool) {
 		for i := 0; i < t.height; i++ {
 			for j := 0; j < t.width; j++ {
@@ -66,28 +69,52 @@ func (t *Float32Table) Cell() iter.Seq[float32] {
 	return fn
 }
 
+// Row returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type []float32.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Row(0) -> [ a b c ]
+//	Row(1) -> [ d e f ]
+func (t Float32Table) Row() iter.Seq[[]float32] {
+	fn := func(yield func([]float32) bool) {
+		for i := 0; i < t.height; i++ {
+			if !yield(t.table[i]) {
+				return
+			}
+		}
+	}
+
+	return fn
+}
+
 // Cleanup is a method that cleans up the table.
 //
 // It sets all cells in the table to the zero value of type float32.
-func (t *Float32Table) Cleanup() {
+func (t Float32Table) Cleanup() {
 	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]float32, t.width)
+		for j := 0; j < t.width; j++ {
+			t.table[i][j] = 0.0
+		}
 	}
 }
 
-// GetWidth returns the width of the table.
+// Width returns the width of the table.
 //
 // Returns:
 //   - int: The width of the table. Never negative.
-func (t *Float32Table) GetWidth() int {
+func (t Float32Table) Width() int {
 	return t.width
 }
 
-// GetHeight returns the height of the table.
+// Height returns the height of the table.
 //
 // Returns:
 //   - int: The height of the table. Never negative.
-func (t *Float32Table) GetHeight() int {
+func (t Float32Table) Height() int {
 	return t.height
 }
 
@@ -98,7 +125,7 @@ func (t *Float32Table) GetHeight() int {
 //   - x: The x-coordinate of the cell.
 //   - y: The y-coordinate of the cell.
 //   - cell: The cell to write to the table.
-func (t *Float32Table) WriteAt(x, y int, cell float32) {
+func (t Float32Table) WriteAt(x, y int, cell float32) {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return
 	}
@@ -106,8 +133,8 @@ func (t *Float32Table) WriteAt(x, y int, cell float32) {
 	t.table[y][x] = cell
 }
 
-// GetAt returns the cell at the given coordinates in the table. However, out-of-bounds
-// coordinates return the zero value of type float32.
+// CellAt returns the cell at the given coordinates in the table. However, out-of-bounds
+// coordinates return 0.0.
 //
 // Parameters:
 //   - x: The x-coordinate of the cell.
@@ -115,7 +142,7 @@ func (t *Float32Table) WriteAt(x, y int, cell float32) {
 //
 // Returns:
 //   - float32: The cell at the given coordinates.
-func (t *Float32Table) GetAt(x, y int) float32 {
+func (t Float32Table) CellAt(x, y int) float32 {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return 0.0
 	} else {
@@ -157,14 +184,14 @@ func (t *Float32Table) GetAt(x, y int) float32 {
 //
 // As you can see, the 'g' value was ignored as it would be out-of-bounds.
 // Finally, if either x or y is nil, the function does nothing.
-func (t *Float32Table) WriteVerticalSequence(x, y *int, sequence []float32) {
-	if x == nil || y == nil {
+func (t Float32Table) WriteVerticalSequence(x, y *int, sequence []float32) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualX < 0 || actualX >= t.width || actualY >= t.height {
+	if actualX < 0 || actualX >= t.width || actualY >= t.height {
 		return
 	}
 
@@ -192,14 +219,14 @@ func (t *Float32Table) WriteVerticalSequence(x, y *int, sequence []float32) {
 //   - x: The x-coordinate of the starting cell.
 //   - y: The y-coordinate of the starting cell.
 //   - sequence: The sequence of cells to write to the table.
-func (t *Float32Table) WriteHorizontalSequence(x, y *int, sequence []float32) {
-	if x == nil || y == nil {
+func (t Float32Table) WriteHorizontalSequence(x, y *int, sequence []float32) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualY < 0 || actualY >= t.height || actualX >= t.width {
+	if actualY < 0 || actualY >= t.height || actualX >= t.width {
 		return
 	}
 
@@ -216,11 +243,11 @@ func (t *Float32Table) WriteHorizontalSequence(x, y *int, sequence []float32) {
 	*x = actualX + len(sequence)
 }
 
-// GetFullTable returns the full table as a 2D slice of elements of type float32.
+// FullTable returns the full table as a 2D slice of elements of type float32.
 //
 // Returns:
 //   - [][]float32: The full table.
-func (t *Float32Table) GetFullTable() [][]float32 {
+func (t Float32Table) FullTable() [][]float32 {
 	return t.table
 }
 
@@ -231,7 +258,7 @@ func (t *Float32Table) GetFullTable() [][]float32 {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the x-coordinate is out of bounds.
-func (t *Float32Table) IsXInBounds(x int) error {
+func (t Float32Table) IsXInBounds(x int) error {
 	if x < 0 || x >= t.width {
 		return ints.NewErrOutOfBounds(x, 0, t.width)
 	} else {
@@ -246,7 +273,7 @@ func (t *Float32Table) IsXInBounds(x int) error {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the y-coordinate is out of bounds.
-func (t *Float32Table) IsYInBounds(y int) error {
+func (t Float32Table) IsYInBounds(y int) error {
 	if y < 0 || y >= t.height {
 		return ints.NewErrOutOfBounds(y, 0, t.height)
 	} else {
@@ -269,7 +296,7 @@ func (t *Float32Table) IsYInBounds(y int) error {
 //   - y: The y-coordinate to write the table at.
 //
 // If the table is nil, x or y are nil, nothing happens.
-func (t *Float32Table) WriteTableAt(table *Float32Table, x, y *int) {
+func (t Float32Table) WriteTableAt(table *Float32Table, x, y *int) {
 	if table == nil || x == nil || y == nil {
 		return
 	}
@@ -290,4 +317,70 @@ func (t *Float32Table) WriteTableAt(table *Float32Table, x, y *int) {
 
 	*x += offsetX
 	*y += offsetY
+}
+	
+// ResizeWidth resizes the table to the given width.
+//
+// Parameters:
+//   - new_width: The new width of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new width is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *Float32Table) ResizeWidth(new_width int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_width < 0 {
+		return errors.NewErrInvalidParameter("new_width", errors.NewErrGTE(0))
+	}
+
+	if new_width == t.width {
+		return nil
+	} else if new_width < t.width {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = t.table[i][:new_width]
+		}
+	} else {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = append(t.table[i], make([]float32, new_width-t.width)...)
+		}
+	}
+
+	t.width = new_width
+
+	return nil
+}
+
+// ResizeHeight resizes the table to the given height.
+//
+// Parameters:
+//   - new_height: The new height of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new height is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *Float32Table) ResizeHeight(new_height int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_height < 0 {
+		return errors.NewErrInvalidParameter("new_height", errors.NewErrGTE(0))
+	}
+
+	if new_height == t.height {
+		return nil
+	} else if new_height < t.height {
+		t.table = t.table[:new_height]
+	} else {
+		t.table = append(t.table, make([][]float32, new_height-t.height)...)
+	}
+
+	t.height = new_height
+
+	return nil
 }

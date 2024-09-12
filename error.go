@@ -4,6 +4,7 @@ package table
 import (
 	"iter"	
 
+	"github.com/PlayerR9/go-commons/errors"
 	"github.com/PlayerR9/go-commons/ints"
 )
 
@@ -21,26 +22,28 @@ type ErrorTable struct {
 //   - height: The height of the table.
 //
 // Returns:
-//   - *ErrorTable: The new table. Never nil.
-func NewErrorTable(width, height int) *ErrorTable {
+//   - *ErrorTable: The new table.
+//   - error: An error if the table could not be created.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the width or height is less than 0.
+func NewErrorTable(width, height int) (*ErrorTable, error) {
 	if width < 0 {
-		width = -width
+		return nil, errors.NewErrInvalidParameter("width", errors.NewErrGTE(0))
+	} else if height < 0 {
+		return nil, errors.NewErrInvalidParameter("height", errors.NewErrGTE(0))
 	}
 
-	if height < 0 {
-		height = -height
-	}
-
-	table := make([][]error, height)
+	table := make([][]error, 0, height)
 	for i := 0; i < height; i++ {
-		table[i] = make([]error, width)
+		table = append(table, make([]error, width))
 	}
 
 	return &ErrorTable{
 		table:  table,
 		width:  width,
 		height: height,
-	}
+	}, nil
 }
 
 // Cell returns an iterator that is a pull-model iterator that scans the table row by
@@ -52,7 +55,7 @@ func NewErrorTable(width, height int) *ErrorTable {
 //	[ d e f ]
 //
 //	Cell() -> [ a ] -> [ b ] -> [ c ] -> [ d ] -> [ e ] -> [ f ]
-func (t *ErrorTable) Cell() iter.Seq[error] {
+func (t ErrorTable) Cell() iter.Seq[error] {
 	fn := func(yield func(error) bool) {
 		for i := 0; i < t.height; i++ {
 			for j := 0; j < t.width; j++ {
@@ -66,28 +69,52 @@ func (t *ErrorTable) Cell() iter.Seq[error] {
 	return fn
 }
 
+// Row returns an iterator that is a pull-model iterator that scans the table row by
+// row as it was an array of elements of type []error.
+//
+// Example:
+//
+//	[ a b c ]
+//	[ d e f ]
+//
+//	Row(0) -> [ a b c ]
+//	Row(1) -> [ d e f ]
+func (t ErrorTable) Row() iter.Seq[[]error] {
+	fn := func(yield func([]error) bool) {
+		for i := 0; i < t.height; i++ {
+			if !yield(t.table[i]) {
+				return
+			}
+		}
+	}
+
+	return fn
+}
+
 // Cleanup is a method that cleans up the table.
 //
 // It sets all cells in the table to the zero value of type error.
-func (t *ErrorTable) Cleanup() {
+func (t ErrorTable) Cleanup() {
 	for i := 0; i < t.height; i++ {
-		t.table[i] = make([]error, t.width)
+		for j := 0; j < t.width; j++ {
+			t.table[i][j] = nil
+		}
 	}
 }
 
-// GetWidth returns the width of the table.
+// Width returns the width of the table.
 //
 // Returns:
 //   - int: The width of the table. Never negative.
-func (t *ErrorTable) GetWidth() int {
+func (t ErrorTable) Width() int {
 	return t.width
 }
 
-// GetHeight returns the height of the table.
+// Height returns the height of the table.
 //
 // Returns:
 //   - int: The height of the table. Never negative.
-func (t *ErrorTable) GetHeight() int {
+func (t ErrorTable) Height() int {
 	return t.height
 }
 
@@ -98,7 +125,7 @@ func (t *ErrorTable) GetHeight() int {
 //   - x: The x-coordinate of the cell.
 //   - y: The y-coordinate of the cell.
 //   - cell: The cell to write to the table.
-func (t *ErrorTable) WriteAt(x, y int, cell error) {
+func (t ErrorTable) WriteAt(x, y int, cell error) {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return
 	}
@@ -106,8 +133,8 @@ func (t *ErrorTable) WriteAt(x, y int, cell error) {
 	t.table[y][x] = cell
 }
 
-// GetAt returns the cell at the given coordinates in the table. However, out-of-bounds
-// coordinates return the zero value of type error.
+// CellAt returns the cell at the given coordinates in the table. However, out-of-bounds
+// coordinates return nil.
 //
 // Parameters:
 //   - x: The x-coordinate of the cell.
@@ -115,7 +142,7 @@ func (t *ErrorTable) WriteAt(x, y int, cell error) {
 //
 // Returns:
 //   - error: The cell at the given coordinates.
-func (t *ErrorTable) GetAt(x, y int) error {
+func (t ErrorTable) CellAt(x, y int) error {
 	if x < 0 || x >= t.width || y < 0 || y >= t.height {
 		return nil
 	} else {
@@ -157,14 +184,14 @@ func (t *ErrorTable) GetAt(x, y int) error {
 //
 // As you can see, the 'g' value was ignored as it would be out-of-bounds.
 // Finally, if either x or y is nil, the function does nothing.
-func (t *ErrorTable) WriteVerticalSequence(x, y *int, sequence []error) {
-	if x == nil || y == nil {
+func (t ErrorTable) WriteVerticalSequence(x, y *int, sequence []error) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualX < 0 || actualX >= t.width || actualY >= t.height {
+	if actualX < 0 || actualX >= t.width || actualY >= t.height {
 		return
 	}
 
@@ -192,14 +219,14 @@ func (t *ErrorTable) WriteVerticalSequence(x, y *int, sequence []error) {
 //   - x: The x-coordinate of the starting cell.
 //   - y: The y-coordinate of the starting cell.
 //   - sequence: The sequence of cells to write to the table.
-func (t *ErrorTable) WriteHorizontalSequence(x, y *int, sequence []error) {
-	if x == nil || y == nil {
+func (t ErrorTable) WriteHorizontalSequence(x, y *int, sequence []error) {
+	if x == nil || y == nil || len(sequence) == 0 {
 		return
 	}
 
 	actualX, actualY := *x, *y
 
-	if len(sequence) == 0 || actualY < 0 || actualY >= t.height || actualX >= t.width {
+	if actualY < 0 || actualY >= t.height || actualX >= t.width {
 		return
 	}
 
@@ -216,11 +243,11 @@ func (t *ErrorTable) WriteHorizontalSequence(x, y *int, sequence []error) {
 	*x = actualX + len(sequence)
 }
 
-// GetFullTable returns the full table as a 2D slice of elements of type error.
+// FullTable returns the full table as a 2D slice of elements of type error.
 //
 // Returns:
 //   - [][]error: The full table.
-func (t *ErrorTable) GetFullTable() [][]error {
+func (t ErrorTable) FullTable() [][]error {
 	return t.table
 }
 
@@ -231,7 +258,7 @@ func (t *ErrorTable) GetFullTable() [][]error {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the x-coordinate is out of bounds.
-func (t *ErrorTable) IsXInBounds(x int) error {
+func (t ErrorTable) IsXInBounds(x int) error {
 	if x < 0 || x >= t.width {
 		return ints.NewErrOutOfBounds(x, 0, t.width)
 	} else {
@@ -246,7 +273,7 @@ func (t *ErrorTable) IsXInBounds(x int) error {
 //
 // Returns:
 //   - error: An error of type *ints.ErrOutOfBounds if the y-coordinate is out of bounds.
-func (t *ErrorTable) IsYInBounds(y int) error {
+func (t ErrorTable) IsYInBounds(y int) error {
 	if y < 0 || y >= t.height {
 		return ints.NewErrOutOfBounds(y, 0, t.height)
 	} else {
@@ -269,7 +296,7 @@ func (t *ErrorTable) IsYInBounds(y int) error {
 //   - y: The y-coordinate to write the table at.
 //
 // If the table is nil, x or y are nil, nothing happens.
-func (t *ErrorTable) WriteTableAt(table *ErrorTable, x, y *int) {
+func (t ErrorTable) WriteTableAt(table *ErrorTable, x, y *int) {
 	if table == nil || x == nil || y == nil {
 		return
 	}
@@ -290,4 +317,70 @@ func (t *ErrorTable) WriteTableAt(table *ErrorTable, x, y *int) {
 
 	*x += offsetX
 	*y += offsetY
+}
+	
+// ResizeWidth resizes the table to the given width.
+//
+// Parameters:
+//   - new_width: The new width of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new width is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *ErrorTable) ResizeWidth(new_width int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_width < 0 {
+		return errors.NewErrInvalidParameter("new_width", errors.NewErrGTE(0))
+	}
+
+	if new_width == t.width {
+		return nil
+	} else if new_width < t.width {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = t.table[i][:new_width]
+		}
+	} else {
+		for i := 0; i < t.height; i++ {
+			t.table[i] = append(t.table[i], make([]error, new_width-t.width)...)
+		}
+	}
+
+	t.width = new_width
+
+	return nil
+}
+
+// ResizeHeight resizes the table to the given height.
+//
+// Parameters:
+//   - new_height: The new height of the table.
+//
+// Returns:
+//   - error: An error if the table could not be resized.
+//
+// Errors:
+//   - *errors.ErrInvalidParameter: If the new height is less than 0.
+//   - errors.NilReceiver: If the table is nil.
+func (t *ErrorTable) ResizeHeight(new_height int) error {
+	if t == nil {
+		return errors.NilReceiver
+	} else if new_height < 0 {
+		return errors.NewErrInvalidParameter("new_height", errors.NewErrGTE(0))
+	}
+
+	if new_height == t.height {
+		return nil
+	} else if new_height < t.height {
+		t.table = t.table[:new_height]
+	} else {
+		t.table = append(t.table, make([][]error, new_height-t.height)...)
+	}
+
+	t.height = new_height
+
+	return nil
 }
